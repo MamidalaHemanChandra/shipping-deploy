@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shipping
+  namespace: roboshop
+data:
+  CART_ENDPOINT: {{ .Values.configmap.CART_ENDPOINT }}
+  DB_HOST: {{ .Values.configmap.DB_HOST }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping
+  namespace: roboshop
+  labels:
+    project: roboshop
+    component: shipping
+    tier: backend
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      project: roboshop
+      component: shipping
+      tier: backend
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        component: shipping
+        tier: backend
+    spec:
+      containers:
+      - name: shipping
+        image: "{{ .Values.deployment.image }}:{{ .Values.deployment.version }}"
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: shipping
+        ports:
+        - name: liveness-port
+          containerPort: 8080
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: liveness-port
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: liveness-port
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    component: shipping
+    tier: backend
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: shipping
+  namespace: roboshop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: shipping
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
