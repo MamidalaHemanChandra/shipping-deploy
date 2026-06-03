@@ -1,4 +1,4 @@
 deployment:
   replicas: 1
   image: 634758830486.dkr.ecr.us-east-1.amazonaws.com/roboshop/shipping
-  version: ImageVersion
+  version: 1.0
